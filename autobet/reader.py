@@ -1,3 +1,5 @@
+import difflib
+
 from autobet.constants import *
 from autobet.util import log
 from PIL import ImageOps, ImageEnhance
@@ -8,12 +10,9 @@ import time
 import platform
 import pytesseract
 import pyautogui
-import autobet.ocr_model as ocr_model
 
 if platform.system() == 'Windows':
 	pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
-
-MODEL = ocr_model.load_model()
 
 class Reader:
 	# Assume that if '+' is read, it's always followed by the currency symbol
@@ -31,17 +30,19 @@ class Reader:
 		# Invert then enhance contrast
 		return ImageEnhance.Contrast(ImageOps.invert(img)).enhance(5)
 
-	def screenshot_odd(self, i):
-		left = int(self.game_coord.width * PLACE_BET_SCREEN_ODDS_X) + self.game_coord.left
-		top = int(self.game_coord.height * PLACE_BET_SCREEN_ODDS_YS[i]) + self.game_coord.top
-		width = int(self.game_coord.width * PLACE_BET_SCREEN_ODDS_WIDTH)
-		height = int(self.game_coord.height * PLACE_BET_SCREEN_ODDS_HEIGHT)
-		raw_img = pyautogui.screenshot(region=(left, top, width, height))
-		enhanced_img = self.enhance_screenshot(raw_img)
-		bw_img = enhanced_img.convert('L')
-		if bw_img.size != Reader.OCR_MODEL_INPUT_DIMENSIONS:
-			bw_img = bw_img.resize(Reader.OCR_MODEL_INPUT_DIMENSIONS)
-		return bw_img
+	def screenshot_names(self):
+		left = int(self.game_coord.width * PLACE_BET_SCREEN_NAMES_X) + self.game_coord.left
+		top = int(self.game_coord.height * PLACE_BET_SCREEN_NAMES_Y) + self.game_coord.top
+		width = int(self.game_coord.width * PLACE_BET_SCREEN_NAMES_WIDTH)
+		height = int(self.game_coord.height * PLACE_BET_SCREEN_NAMES_HEIGHT*6)
+		raw_imgs = [pyautogui.screenshot(region=(185, 297+121*i, 280, 30)) for i in range(6)]
+		enhanced_imgs = [ImageOps.invert(raw_img.point(lambda p: p > 80 and p)) for raw_img in raw_imgs]
+		bw_imgs = [enhanced_img.convert('L') for enhanced_img in enhanced_imgs]
+		return bw_imgs
+
+	def screenshot_colors(self):
+		imgs = [pyautogui.screenshot(region=(185, 297+121*i, 1, 1)) for i in range(6)]
+		return imgs
 
 	def parse_winning(self, img):
 		ocr_res = pytesseract.image_to_string(img, config='--psm 8 -c tessedit_char_whitelist=+0123456789')
@@ -55,9 +56,19 @@ class Reader:
 		return 0
 
 	def read_odds(self):
-		screenshots = [self.screenshot_odd(i) for i in range(NUM_BETS)]
-		odds = ocr_model.parse_multiple(MODEL, screenshots)
-		return odds
+		racers = self.read_names()
+		return [HORSEODDS[HORSENAMES.index(racers[i])] for i in range(len(racers))]
+
+	def read_names(self):
+		screenshots = self.screenshot_names()
+		names = [difflib.get_close_matches(pytesseract.image_to_string(screenshot, lang='eng', config='--psm 7 --oem 3 --user-words "C:\\Program Files\\Tesseract-OCR\\tessdata\\eng.user-words"'), HORSENAMES, n=1)[0] for screenshot in screenshots]
+		print(names)
+		return names
+
+	def read_colors(self):
+		screenshots = self.screenshot_colors()
+		colors = [screenshot.convert("RGB").getpixel((0, 0)) for screenshot in screenshots]
+		return colors
 
 	def screenshot_winning(self):
 		left = int(self.game_coord.width * RESULTS_SCREEN_WINNING_X) + self.game_coord.left
@@ -70,3 +81,18 @@ class Reader:
 	def read_winning(self):
 		screenshot = self.screenshot_winning()
 		return self.parse_winning(screenshot)
+
+	def screenshot_leaderboard(self):
+		#x, y, width, height
+		#Middle, left, right (first second third)
+		sizes = [(712, 614, 492, 33), (151, 601, 454, 26), (1302, 601, 454, 26)]
+		raw_imgs = [pyautogui.screenshot(region=box) for box in sizes]
+		enhanced_imgs = [ImageOps.invert(raw_img.point(lambda p: p > 80 and 255)) for raw_img in raw_imgs]
+		bw_imgs = [enhanced_img.convert('L') for enhanced_img in enhanced_imgs]
+		return bw_imgs
+
+	def read_leaderboard(self):
+		screenshots = self.screenshot_leaderboard()
+		names = [difflib.get_close_matches(pytesseract.image_to_string(screenshot, lang='eng', config='--psm 7 --oem 3 --user-words "C:\\Program Files\\Tesseract-OCR\\tessdata\\eng.user-words"'), HORSENAMES, n=1)[0] for screenshot in screenshots]
+		print(names)
+		return names

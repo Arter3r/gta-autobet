@@ -5,15 +5,16 @@ from tensorflow.keras.layers import *
 from autobet.constants import PLACE_BET_SCREEN_ODDS_WIDTH, PLACE_BET_SCREEN_ODDS_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT
 
 SAVED_MODEL_PATH = 'trained_model/saved_ocr_model'
-MAX_ODDS = 30
-INPUT_SHAPE = (int(PLACE_BET_SCREEN_ODDS_HEIGHT * SCREEN_HEIGHT), int(PLACE_BET_SCREEN_ODDS_WIDTH * SCREEN_WIDTH), 1)
+MAX_ODDS = 30+99
+INPUT_SHAPE = (int(PLACE_BET_SCREEN_ODDS_WIDTH * SCREEN_WIDTH), int(PLACE_BET_SCREEN_ODDS_HEIGHT * SCREEN_HEIGHT), 1)
+INPUT_SHAPE_NP = (int(PLACE_BET_SCREEN_ODDS_HEIGHT * SCREEN_HEIGHT), int(PLACE_BET_SCREEN_ODDS_WIDTH * SCREEN_WIDTH), 1)
 
 def new_model():
         # ~1.5 million parameters
         model = tf.keras.applications.MobileNetV2(
             include_top=True,
             weights=None,
-            input_shape=INPUT_SHAPE,
+            input_shape=INPUT_SHAPE_NP,
             pooling=None,
             classes=MAX_ODDS,
         )

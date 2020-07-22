@@ -4,5 +4,7 @@ pynput
 opencv-python
 pillow
 pydirectinput
-tensorflow
+tensorflow-gpu
 numpy
+pymongo
+dnspython

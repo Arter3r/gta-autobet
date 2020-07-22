@@ -6,6 +6,7 @@ from autobet.reader import Reader
 from autobet.bettor import Bettor
 from autobet.constants import HORSE_RACE_DURATION_SECONDS, SAFE_CLICK_X_Y
 from autobet.util import *
+from autobet.recorder import Recorder
 
 import time
 
@@ -80,8 +81,15 @@ class App:
 			clicker.exit_and_reenter()
 			return
 
+		stats = Recorder()
 		odds = reader.read_odds()
-		bet_position, bet_amount = Bettor.bet(odds)
+		names = reader.read_names()
+		stats.horses = [name for name in names]
+		stats.colors = reader.read_colors()
+		stats.odds = odds
+		bet_position, bet_amount = Bettor.bet(odds, names)
+		stats.betID = bet_position
+		stats.bet = bet_amount
 		log(f'Placing bet on {bet_position+1} for {bet_amount}')
 		clicker.place_bet(bet_position, bet_amount)
 		time.sleep(HORSE_RACE_DURATION_SECONDS)
@@ -95,6 +103,8 @@ class App:
 
 		winning = reader.read_winning()
 		net_won = winning - bet_amount
+		stats.winnings = winning
+		stats.leaderboard = reader.read_leaderboard()
 		self.winnings.append(net_won)
 		self.acc_winnings += net_won
 		log(f'Made ${net_won}. Session total: ${self.acc_winnings}')
@@ -102,6 +112,7 @@ class App:
 		hours_elapsed = seconds_elapsed / 3600
 		winnings_per_hour = self.acc_winnings / hours_elapsed
 		log(f'Time elapsed: {str(timedelta(seconds=seconds_elapsed)).split(".")[0]} Avg Earnings: ${round(winnings_per_hour)}/hr')
+		stats.save()
 		clicker.click_bet_again()
 
 		if not at_start_screen(*top_left_coord):
